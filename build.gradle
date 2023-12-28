@@ -1,0 +1,110 @@
+plugins {
+//    id 'com.doordash.asgard.plugin'
+    id 'org.jetbrains.kotlin.jvm' version "1.6.21"
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+
+
+group = "com.doordash.service"
+version = "1.9"
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+archivesBaseName = "task-service-common2"
+
+
+//configurations.all {
+//    resolutionStrategy {
+//        force 'org.slf4j:slf4j-api:1.7.32' // Force the desired version
+//        // Add more force statements for other dependencies if needed
+//    }
+//}
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+//    implementation 'org.jetbrains.kotlin:kotlin-reflect:1.6.0'
+//    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
+//    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.5.32'
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.15.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.0'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.15.0'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.15.0'
+    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:2.15.0'
+    implementation 'com.google.code.gson:gson:2.8.5'
+
+    // spark
+    compileOnly("org.apache.spark:spark-core_2.12:3.5.0") // Adjust the version as needed
+    compileOnly("org.apache.spark:spark-sql_2.12:3.5.0")
+    compileOnly 'org.slf4j:slf4j-api:1.7.32' // Use the desired version
+
+    // upgrade log4j version for zero day vul
+//    implementation("org.apache.logging.log4j:log4j-api") {
+//        version {
+//            strictly '2.15.0'
+//        }
+//    }
+}
+
+
+tasks.withType(Test) {
+    jvmArgs += ["--add-opens=java.base/java.time=ALL-UNNAMED",
+                "--add-opens=java.base/java.util=ALL-UNNAMED"]
+}
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'com.doordash.taskservice.model.translator.ModelTranslatorMain',
+        )
+    }
+}
+
+task fatJar(type: Jar) {
+    manifest.from jar.manifest
+    zip64 true
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    archiveClassifier = 'all'
+    from files(sourceSets.main.output.classesDirs)
+    from {
+        configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    } {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
+    }
+    with jar
+}
+shadowJar {
+    zip64 true
+    dependsOn(tasks.named("fatJar"))
+    archiveClassifier.set('shadow')
+  //  relocate 'com.fasterxml', 'com.shade.fasterxml'
+   // relocate 'kotlin.jvm', 'kotlin.shade.jvm'
+}
+
+
+artifacts {
+    archives fatJar
+}
+
+application {
+    mainClass = "com.doordash.taskservice.model.translator.ModelTranslatorMain"
+}
+sourceSets {
+    main.java.srcDirs += 'src/main/kotlin/'
+    test.java.srcDirs += 'src/test/kotlin/'
+}
+//test.doFirst {
+//    environment 'SERVICE_NAME', 'task-service-common' // Hermes requires this to be set
+//}
+//configurations.all {
+//    resolutionStrategy {
+//        eachDependency { DependencyResolveDetails details ->
+//            if (details.requested.group == 'org.jetbrains.kotlin') {
+//                details.useVersion '1.4.10'
+//            }
+//        }
+//    }}
